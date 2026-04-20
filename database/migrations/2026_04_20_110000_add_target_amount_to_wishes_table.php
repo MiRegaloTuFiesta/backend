@@ -12,7 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('wishes', function (Blueprint $table) {
-            $table->integer('liquid_amount')->default(0);
+            // Restore target_amount only if it doesn't exist
+            if (!Schema::hasColumn('wishes', 'target_amount')) {
+                $table->integer('target_amount')->default(0)->after('description');
+            }
         });
     }
 
@@ -22,7 +25,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('wishes', function (Blueprint $table) {
-            $table->dropColumn('liquid_amount');
+            $table->dropColumn('target_amount');
         });
     }
 };
