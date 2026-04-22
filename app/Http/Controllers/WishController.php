@@ -27,6 +27,11 @@ class WishController extends Controller
             'target_amount' => 'nullable|integer|min:0',
         ]);
 
+        // Validate min $5.000 if amount is fixed
+        if (($validated['liquid_amount'] ?? 0) > 0 && $validated['liquid_amount'] < 5000) {
+            return response()->json(['message' => 'El valor mínimo por regalo debe ser de $5.000'], 422);
+        }
+
         // Check if the event belongs to the user
         $event = $request->user()->events()->findOrFail($validated['event_id']);
 
@@ -67,6 +72,11 @@ class WishController extends Controller
             'liquid_amount' => 'nullable|integer|min:0',
             'target_amount' => 'nullable|integer|min:0',
         ]);
+
+        // Validate min $5.000 if amount is fixed
+        if (($validated['liquid_amount'] ?? 0) > 0 && $validated['liquid_amount'] < 5000) {
+            return response()->json(['message' => 'El valor mínimo por regalo debe ser de $5.000'], 422);
+        }
         
         $wish->update($validated);
         return response()->json($wish);

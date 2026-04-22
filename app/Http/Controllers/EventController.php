@@ -12,6 +12,9 @@ class EventController extends Controller
     {
         $user = $request->user();
         $search = $request->query('search');
+        $categoryId = $request->query('category_id');
+        $cityId = $request->query('city_id');
+        $requestedService = $request->query('requested_service');
         
         $query = Event::with(['wishes', 'user', 'assignedAdmin', 'city.region'])
             ->withSum(['manualPayments as manual_payments_sum_amount' => function($q) {
@@ -32,11 +35,27 @@ class EventController extends Controller
             });
         }
 
-        if ($user->role === 'admin') {
-            return response()->json($query->get());
+        if ($categoryId) {
+            if ($categoryId === 'uncategorized') {
+                $query->whereNull('category_id');
+            } else {
+                $query->where('category_id', $categoryId);
+            }
         }
 
-        return response()->json($user->events()->with('wishes')->get());
+        if ($cityId) {
+            $query->where('city_id', $cityId);
+        }
+
+        if ($requestedService && $requestedService !== 'all') {
+            $query->where('requests_internal_service', $requestedService === 'yes');
+        }
+
+        if ($user->role === 'admin') {
+            return response()->json($query->orderBy('created_at', 'desc')->get());
+        }
+
+        return response()->json($user->events()->with(['wishes', 'city.region', 'assignedAdmin', 'category'])->orderBy('created_at', 'desc')->get());
     }
 
     public function store(Request $request)
@@ -71,7 +90,7 @@ class EventController extends Controller
             'total_price' => $validated['creator_budget'] ?? 0,
             'collected_amount' => 0,
             'overflow_balance' => 0,
-            'status' => 'pending',
+            'status' => 'approved',
         ]);
 
         return response()->json($event, 201);
@@ -93,10 +112,6 @@ class EventController extends Controller
             }], 'amount')
             ->firstOrFail();
         
-        if ($event->status !== 'approved') {
-            return response()->json(['message' => 'Evento en revisión o no disponible'], 403);
-        }
-
         return response()->json($event);
     }
 
@@ -107,7 +122,23 @@ class EventController extends Controller
             ? Event::findOrFail($id)
             : $user->events()->findOrFail($id);
 
-        $event->update($request->all());
+        if ($user->role === 'admin') {
+            // Admins can update any field
+            $event->update($request->all());
+        } else {
+            // Creators can only update their own safe metadata fields
+            $validated = $request->validate([
+                'name' => 'sometimes|string|max:255',
+                'date' => 'sometimes|date',
+                'category_id' => 'nullable|exists:categories,id',
+                'city_id' => 'nullable|exists:cities,id',
+                'address' => 'nullable|string|max:500',
+                'is_location_public' => 'sometimes|boolean',
+                'creator_budget' => 'nullable|integer|min:0',
+            ]);
+            $event->update($validated);
+        }
+
         return response()->json($event);
     }
 

@@ -15,6 +15,7 @@ use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\GeographyController;
+use App\Http\Controllers\EventReportController;
 
 // Geography Public Routes
 Route::get('/regions', [GeographyController::class, 'regions']);
@@ -55,6 +56,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/events/{id}/pending-transfers', [AdminController::class, 'getPendingTransfers']);
     Route::put('/admin/contributions/{id}/approve-transfer', [AdminController::class, 'approveTransfer']);
     Route::apiResource('admin/categories', CategoryController::class);
+    Route::get('/admin/reports', [EventReportController::class, 'index']);
+    Route::put('/admin/reports/{id}/review', [EventReportController::class, 'review']);
 });
 
 // Categories Public List
@@ -63,6 +66,7 @@ Route::get('/settings/public', [AdminController::class, 'getPublicSettings']);
 
 // Public Event Endpoint
 Route::get('/events/{uuid}', [EventController::class, 'show']);
+Route::post('/events/{uuid}/report', [EventReportController::class, 'store']);
 
 // Public Checkout Endpoint
 Route::post('/checkout', [CheckoutController::class, 'process']);

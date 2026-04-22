@@ -18,12 +18,16 @@ class GeographyController extends Controller
     public function cities(Request $request)
     {
         $request->validate([
-            'region_id' => 'required|exists:regions,id'
+            'region_id' => 'nullable|exists:regions,id'
         ]);
 
-        $cities = City::where('region_id', $request->region_id)
-            ->orderBy('name')
-            ->get();
+        $query = City::orderBy('name');
+
+        if ($request->region_id) {
+            $query->where('region_id', $request->region_id);
+        }
+
+        $cities = $query->get();
             
         return response()->json($cities);
     }

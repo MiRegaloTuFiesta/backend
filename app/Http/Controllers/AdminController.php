@@ -66,10 +66,13 @@ class AdminController extends Controller
                 'total_events' => $totalEvents,
                 'pending_events' => $pendingEvents,
                 'total_users' => $totalUsers,
+                'pending_reports' => \App\Models\EventReport::where('status', 'pending')->count(),
             ],
             'upcoming_alerts' => $upcomingEvents,
             'recent_contributions' => $recentContributions,
             'chart_data' => $chartData,
+            'recent_users' => User::latest()->limit(5)->get(['id', 'name', 'email', 'created_at']),
+            'recent_events' => Event::with('user:id,name')->latest()->limit(5)->get(['id', 'name', 'user_id', 'created_at']),
         ]);
     }
 
@@ -126,6 +129,9 @@ class AdminController extends Controller
         $endDate = $request->query('end_date');
         $userId = $request->query('user_id');
         $paymentType = $request->query('payment_type', 'all'); // all, automatic, manual_event, manual_service
+        $categoryId = $request->query('category_id');
+        $cityId = $request->query('city_id');
+        $requestedService = $request->query('requested_service');
 
         $contributionsItems = collect();
         $manualPaymentsItems = collect();
@@ -140,6 +146,22 @@ class AdminController extends Controller
             if ($userId) {
                 $cQuery->whereHas('wish.event', function($q) use ($userId) {
                     $q->where('user_id', $userId);
+                });
+            }
+            if ($categoryId) {
+                $cQuery->whereHas('wish.event', function($q) use ($categoryId) {
+                    if ($categoryId === 'uncategorized') $q->whereNull('category_id');
+                    else $q->where('category_id', $categoryId);
+                });
+            }
+            if ($cityId) {
+                $cQuery->whereHas('wish.event', function($q) use ($cityId) {
+                    $q->where('city_id', $cityId);
+                });
+            }
+            if ($requestedService && $requestedService !== 'all') {
+                $cQuery->whereHas('wish.event', function($q) use ($requestedService) {
+                    $q->where('requests_internal_service', $requestedService === 'yes');
                 });
             }
             
@@ -168,6 +190,22 @@ class AdminController extends Controller
             if ($userId) {
                 $mQuery->whereHas('event', function($q) use ($userId) {
                     $q->where('user_id', $userId);
+                });
+            }
+            if ($categoryId) {
+                $mQuery->whereHas('event', function($q) use ($categoryId) {
+                    if ($categoryId === 'uncategorized') $q->whereNull('category_id');
+                    else $q->where('category_id', $categoryId);
+                });
+            }
+            if ($cityId) {
+                $mQuery->whereHas('event', function($q) use ($cityId) {
+                    $q->where('city_id', $cityId);
+                });
+            }
+            if ($requestedService && $requestedService !== 'all') {
+                $mQuery->whereHas('event', function($q) use ($requestedService) {
+                    $q->where('requests_internal_service', $requestedService === 'yes');
                 });
             }
 

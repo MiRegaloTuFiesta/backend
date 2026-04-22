@@ -25,6 +25,11 @@ class Event extends Model
         return $this->belongsTo(City::class);
     }
 
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
     protected static function boot()
     {
         parent::boot();
