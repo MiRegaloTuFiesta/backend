@@ -55,7 +55,9 @@ class EventController extends Controller
             return response()->json($query->orderBy('created_at', 'desc')->get());
         }
 
-        return response()->json($user->events()->with(['wishes', 'city.region', 'assignedAdmin', 'category'])->orderBy('created_at', 'desc')->get());
+        return response()->json($user->events()->with(['wishes.contributions' => function($q) {
+            $q->where('status', 'completed');
+        }, 'city.region', 'assignedAdmin', 'category'])->orderBy('created_at', 'desc')->get());
     }
 
     public function store(Request $request)
