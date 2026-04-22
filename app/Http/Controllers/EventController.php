@@ -16,7 +16,9 @@ class EventController extends Controller
         $cityId = $request->query('city_id');
         $requestedService = $request->query('requested_service');
         
-        $query = Event::with(['wishes', 'user', 'assignedAdmin', 'city.region'])
+        $query = Event::with(['wishes.contributions' => function($q) {
+            $q->where('status', 'completed');
+        }, 'user', 'assignedAdmin', 'city.region'])
             ->withSum(['manualPayments as manual_payments_sum_amount' => function($q) {
                 $q->where('type', 'event');
             }], 'amount')
