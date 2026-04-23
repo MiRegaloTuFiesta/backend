@@ -20,6 +20,7 @@ class SettingsSeeder extends Seeder
             'platform_fee_percent' => '5.0',
             'iva_percent' => '19.0',
             'min_contribution_amount' => '1000',
+            'payout_days' => '3',
         ];
 
         foreach ($settings as $key => $value) {

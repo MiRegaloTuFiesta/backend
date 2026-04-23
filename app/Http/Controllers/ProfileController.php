@@ -22,6 +22,7 @@ class ProfileController extends Controller
             'bank_id' => 'nullable|exists:banks,id',
             'account_type_id' => 'nullable|exists:account_types,id',
             'account_number' => 'nullable|string|max:50',
+            'bank_rut' => ['nullable', 'string', new \App\Rules\RutValid],
         ]);
 
         // Email changed logic
@@ -32,11 +33,12 @@ class ProfileController extends Controller
         }
 
         // Conditional validation: if any bank detail is provided, all must be provided
-        if ($request->bank_id || $request->account_type_id || $request->account_number) {
+        if ($request->bank_id || $request->account_type_id || $request->account_number || $request->bank_rut) {
             $request->validate([
                 'bank_id' => 'required',
                 'account_type_id' => 'required',
                 'account_number' => 'required',
+                'bank_rut' => ['required', new \App\Rules\RutValid],
             ]);
         }
 
@@ -66,5 +68,34 @@ class ProfileController extends Controller
         ]);
 
         return response()->json(['message' => 'Contraseña actualizada con éxito']);
+    }
+
+    /**
+     * Get financial summary for the creator
+     */
+    public function payoutSummary(Request $request)
+    {
+        $user = $request->user();
+
+        // Pending: completed contributions but NOT deposited
+        $pending = \App\Models\Contribution::where('status', 'completed')
+            ->where('is_deposited', false)
+            ->whereHas('wish.event', function($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })
+            ->sum('net_to_user');
+
+        // Completed: completed and deposited
+        $completed = \App\Models\Contribution::where('status', 'completed')
+            ->where('is_deposited', true)
+            ->whereHas('wish.event', function($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })
+            ->sum('net_to_user');
+
+        return response()->json([
+            'pending_balance' => (int)$pending,
+            'completed_balance' => (int)$completed
+        ]);
     }
 }

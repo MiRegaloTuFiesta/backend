@@ -28,6 +28,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'bank_id',
         'account_type_id',
         'account_number',
+        'bank_rut',
     ];
 
     public function bank()

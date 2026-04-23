@@ -11,7 +11,7 @@ class Contribution extends Model
 
     protected $fillable = [
         'wish_id', 'donor_name', 'email', 'rut', 'amount', 'payment_id', 'status', 'payment_method',
-        'platform_fee', 'gateway_fee', 'net_to_user'
+        'platform_fee', 'gateway_fee', 'net_to_user', 'is_deposited', 'deposited_at'
     ];
 
     public function wish()

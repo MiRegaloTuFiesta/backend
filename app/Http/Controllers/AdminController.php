@@ -359,4 +359,69 @@ class AdminController extends Controller
 
         return response()->json(['message' => 'Transferencia aprobada con éxito']);
     }
+
+    public function payouts()
+    {
+        $payoutDays = (int)Setting::where('key', 'payout_days')->first()?->value ?? 3;
+        
+        // Users with pending deposits (completed contributions not yet deposited)
+        $users = User::where('role', 'creator')
+            ->whereHas('events.wishes.contributions', function($q) {
+                $q->where('status', 'completed')->where('is_deposited', false);
+            })
+            ->with(['bank', 'accountType', 'events.wishes.contributions' => function($q) {
+                $q->where('status', 'completed')->where('is_deposited', false);
+            }])
+            ->get();
+
+        $data = $users->map(function($user) use ($payoutDays) {
+            $pendingContributions = $user->events->flatMap(function($event) {
+                return $event->wishes->flatMap(function($wish) {
+                    return $wish->contributions->where('status', 'completed')->where('is_deposited', false);
+                });
+            });
+
+            $oldestContribution = $pendingContributions->sortBy('created_at')->first();
+            $daysPassed = $oldestContribution ? $oldestContribution->created_at->diffInDays(now()) : 0;
+            $daysRemaining = $payoutDays - $daysPassed;
+
+            return [
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'user_email' => $user->email,
+                'bank_details' => $user->bank ? [
+                    'bank_name' => $user->bank->name,
+                    'account_type' => $user->accountType?->name,
+                    'account_number' => $user->account_number,
+                    'bank_rut' => $user->bank_rut
+                ] : null,
+                'total_pending' => (int)$pendingContributions->sum('net_to_user'),
+                'oldest_contribution_at' => $oldestContribution?->created_at,
+                'days_remaining' => (int)$daysRemaining,
+                'is_delayed' => $daysRemaining < 0,
+                'contribution_ids' => $pendingContributions->pluck('id')->all()
+            ];
+        });
+
+        return response()->json($data);
+    }
+
+    public function completePayout(Request $request, $userId)
+    {
+        $contributionIds = $request->input('contribution_ids', []);
+        
+        if (empty($contributionIds)) {
+            return response()->json(['message' => 'No se seleccionaron pagos'], 422);
+        }
+
+        Contribution::whereIn('id', $contributionIds)
+            ->where('is_deposited', false)
+            ->where('status', 'completed')
+            ->update([
+                'is_deposited' => true,
+                'deposited_at' => now()
+            ]);
+
+        return response()->json(['message' => 'Depósito marcado como completado']);
+    }
 }

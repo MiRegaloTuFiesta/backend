@@ -24,14 +24,16 @@ class AuthController extends Controller
             'bank_id' => 'nullable|exists:banks,id',
             'account_type_id' => 'nullable|exists:account_types,id',
             'account_number' => 'nullable|string|max:50',
+            'bank_rut' => ['nullable', 'string', new \App\Rules\RutValid],
         ]);
 
         // Conditional validation for bank details
-        if ($request->bank_id || $request->account_type_id || $request->account_number) {
+        if ($request->bank_id || $request->account_type_id || $request->account_number || $request->bank_rut) {
             $request->validate([
                 'bank_id' => 'required',
                 'account_type_id' => 'required',
                 'account_number' => 'required',
+                'bank_rut' => ['required', new \App\Rules\RutValid],
             ]);
         }
 
@@ -44,6 +46,7 @@ class AuthController extends Controller
             'bank_id' => $request->bank_id,
             'account_type_id' => $request->account_type_id,
             'account_number' => $request->account_number,
+            'bank_rut' => $request->bank_rut,
         ]);
 
         event(new Registered($user));

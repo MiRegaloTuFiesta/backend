@@ -74,9 +74,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/account-types', [BankController::class, 'accountTypes']);
     Route::post('/admin/account-types', [BankController::class, 'storeAccountType']);
 
+    // Payouts Admin
+    Route::get('/admin/payouts', [AdminController::class, 'payouts']);
+    Route::post('/admin/payouts/{userId}/complete', [AdminController::class, 'completePayout']);
+
     // User Profile
     Route::put('/user/profile', [ProfileController::class, 'update']);
     Route::put('/user/password', [ProfileController::class, 'updatePassword']);
+    Route::get('/user/payouts', [ProfileController::class, 'payoutSummary']);
 });
 
 // Public List for registration/profile
