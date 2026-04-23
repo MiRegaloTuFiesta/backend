@@ -16,6 +16,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\GeographyController;
 use App\Http\Controllers\EventReportController;
+use App\Http\Controllers\WishTemplateController;
 
 // Geography Public Routes
 Route::get('/regions', [GeographyController::class, 'regions']);
@@ -58,6 +59,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('admin/categories', CategoryController::class);
     Route::get('/admin/reports', [EventReportController::class, 'index']);
     Route::put('/admin/reports/{id}/review', [EventReportController::class, 'review']);
+
+    // Wish Templates
+    Route::apiResource('admin/wish-templates', WishTemplateController::class);
+    Route::get('/wish-templates', [WishTemplateController::class, 'publicIndex']);
 });
 
 // Categories Public List

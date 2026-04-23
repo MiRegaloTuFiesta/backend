@@ -11,4 +11,9 @@ class Category extends Model
     use HasFactory;
 
     protected $fillable = ['name', 'slug', 'is_active'];
+
+    public function wishTemplates()
+    {
+        return $this->belongsToMany(WishTemplate::class);
+    }
 }
