@@ -177,6 +177,8 @@ class AdminController extends Controller
                     'net_to_user' => (int)$c->net_to_user,
                     'payment_method' => $c->payment_method,
                     'created_at' => $c->created_at,
+                    'is_deposited' => (bool)$c->is_deposited,
+                    'deposited_at' => $c->deposited_at,
                     'type' => 'automatic',
                 ];
             });
@@ -224,6 +226,7 @@ class AdminController extends Controller
                     'net_to_user' => (int)$m->amount,
                     'payment_method' => 'Manual',
                     'created_at' => $m->created_at,
+                    'is_deposited' => (bool)$m->is_deposited,
                     'type' => 'manual_' . $m->type, 
                 ];
             });
@@ -241,7 +244,8 @@ class AdminController extends Controller
             'total_gross' => (int)$countablePayments->sum('amount'),
             'total_platform_fee' => (int)$countablePayments->sum('platform_fee'),
             'total_gateway_fee' => (int)$countablePayments->sum('gateway_fee'),
-            'total_net' => (int)$countablePayments->sum('net_to_user'),
+            'total_net' => (int)$countablePayments->where('is_deposited', false)->sum('net_to_user'),
+            'total_deposited' => (int)$countablePayments->where('is_deposited', true)->sum('net_to_user'),
             'count' => $allPayments->count(),
         ];
 
@@ -312,7 +316,7 @@ class AdminController extends Controller
 
     public function getPublicSettings()
     {
-        $keys = ['enable_flow', 'enable_mp', 'enable_transfer', 'transfer_bank_details'];
+        $keys = ['enable_flow', 'enable_mp', 'enable_transfer', 'transfer_bank_details', 'payout_days'];
         return response()->json(Setting::whereIn('key', $keys)->get()->pluck('value', 'key'));
     }
 
@@ -364,14 +368,21 @@ class AdminController extends Controller
     {
         $payoutDays = (int)Setting::where('key', 'payout_days')->first()?->value ?? 3;
         
-        // Users with pending deposits (completed contributions not yet deposited)
+        // Users with pending deposits (contributions or manual payments not yet deposited)
         $users = User::where('role', 'creator')
-            ->whereHas('events.wishes.contributions', function($q) {
-                $q->where('status', 'completed')->where('is_deposited', false);
+            ->where(function($query) {
+                $query->whereHas('events.wishes.contributions', function($q) {
+                    $q->where('status', 'completed')->where('is_deposited', false);
+                })->orWhereHas('events.manualPayments', function($q) {
+                    $q->where('type', 'event')->where('is_deposited', false);
+                });
             })
-            ->with(['bank', 'accountType', 'events.wishes.contributions' => function($q) {
-                $q->where('status', 'completed')->where('is_deposited', false);
-            }])
+            ->with([
+                'bank', 
+                'accountType', 
+                'events.wishes.contributions',
+                'events.manualPayments'
+            ])
             ->get();
 
         $data = $users->map(function($user) use ($payoutDays) {
@@ -381,9 +392,26 @@ class AdminController extends Controller
                 });
             });
 
-            $oldestContribution = $pendingContributions->sortBy('created_at')->first();
-            $daysPassed = $oldestContribution ? $oldestContribution->created_at->diffInDays(now()) : 0;
+            $pendingManual = $user->events->flatMap(function($event) {
+                return $event->manualPayments->where('type', 'event')->where('is_deposited', false);
+            });
+
+            $allPendingEntries = $pendingContributions->concat($pendingManual);
+            $oldestEntry = $allPendingEntries->sortBy('created_at')->first();
+            $daysPassed = $oldestEntry ? $oldestEntry->created_at->diffInDays(now()) : 0;
             $daysRemaining = $payoutDays - $daysPassed;
+
+            $depositedContributions = $user->events->flatMap(function($event) {
+                return $event->wishes->flatMap(function($wish) {
+                    return $wish->contributions->where('status', 'completed')->where('is_deposited', true);
+                });
+            })->sum('net_to_user');
+
+            $depositedManual = $user->events->flatMap(function($event) {
+                return $event->manualPayments->where('type', 'event')->where('is_deposited', true);
+            })->sum('amount');
+
+            $depositedBalance = $depositedContributions + $depositedManual;
 
             return [
                 'user_id' => $user->id,
@@ -395,13 +423,101 @@ class AdminController extends Controller
                     'account_number' => $user->account_number,
                     'bank_rut' => $user->bank_rut
                 ] : null,
-                'total_pending' => (int)$pendingContributions->sum('net_to_user'),
-                'oldest_contribution_at' => $oldestContribution?->created_at,
+                'total_pending' => (int)($pendingContributions->sum('net_to_user') + $pendingManual->sum('amount')),
+                'total_deposited' => (int)$depositedBalance,
+                'oldest_contribution_at' => $oldestEntry?->created_at,
                 'days_remaining' => (int)$daysRemaining,
                 'is_delayed' => $daysRemaining < 0,
-                'contribution_ids' => $pendingContributions->pluck('id')->all()
+                'contribution_ids' => $pendingContributions->pluck('id')->all(),
+                'manual_payment_ids' => $pendingManual->pluck('id')->all(),
+                'details' => $pendingContributions->map(function($c) {
+                    return [
+                        'id' => 'c_' . $c->id,
+                        'wish_name' => $c->wish?->name,
+                        'event_name' => $c->wish?->event?->name,
+                        'donor_name' => $c->donor_name,
+                        'amount' => (int)$c->net_to_user,
+                        'date' => $c->created_at->format('d/m/Y'),
+                        'type' => 'contribution'
+                    ];
+                })->concat($pendingManual->map(function($m) {
+                    return [
+                        'id' => 'm_' . $m->id,
+                        'wish_name' => 'Abono Manual',
+                        'event_name' => $m->event?->name,
+                        'donor_name' => $m->description,
+                        'amount' => (int)$m->amount,
+                        'date' => $m->created_at->format('d/m/Y'),
+                        'type' => 'manual'
+                    ];
+                }))
             ];
         });
+
+        return response()->json($data);
+    }
+
+    public function payoutHistory()
+    {
+        $contributions = Contribution::where('is_deposited', true)
+            ->where('status', 'completed')
+            ->with(['wish.event.user.bank', 'wish.event.user.accountType'])
+            ->get();
+
+        $manualPayments = ManualPayment::where('is_deposited', true)
+            ->where('type', 'event')
+            ->with(['event.user.bank', 'event.user.accountType'])
+            ->get();
+
+        $all = $contributions->concat($manualPayments)->sortByDesc('deposited_at');
+
+        $grouped = $all->groupBy(function($item) {
+             $userId = ($item instanceof Contribution) ? $item->wish->event->user_id : $item->event->user_id;
+             return $userId . '_' . $item->deposited_at->format('Y-m-d');
+        });
+
+        $data = $grouped->map(function($items) {
+            $first = $items->first();
+            $user = ($first instanceof Contribution) ? $first->wish->event->user : $first->event->user;
+
+            return [
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'user_email' => $user->email,
+                'deposited_at' => $first->deposited_at->format('d/m/Y'),
+                'deposited_at_raw' => $first->deposited_at,
+                'bank_details' => $user->bank ? [
+                    'bank_name' => $user->bank->name,
+                    'account_type' => $user->accountType?->name,
+                    'account_number' => $user->account_number,
+                    'bank_rut' => $user->bank_rut
+                ] : null,
+                'total_deposited' => (int)$items->sum(function($item) {
+                    return ($item instanceof Contribution) ? $item->net_to_user : $item->amount;
+                }),
+                'details' => $items->map(function($item) {
+                     if ($item instanceof Contribution) {
+                         return [
+                            'id' => 'c_' . $item->id,
+                            'wish_name' => $item->wish?->name,
+                            'event_name' => $item->wish?->event?->name,
+                            'donor_name' => $item->donor_name,
+                            'amount' => (int)$item->net_to_user,
+                            'date' => $item->created_at->format('d/m/Y')
+                        ];
+                     } else {
+                         return [
+                            'id' => 'm_' . $item->id,
+                            'wish_name' => 'Abono Manual',
+                            'event_name' => $item->event?->name,
+                            'donor_name' => $item->description,
+                            'amount' => (int)$item->amount,
+                            'date' => $item->created_at->format('d/m/Y')
+                        ];
+                     }
+                })
+            ];
+        })->values();
 
         return response()->json($data);
     }
@@ -409,18 +525,28 @@ class AdminController extends Controller
     public function completePayout(Request $request, $userId)
     {
         $contributionIds = $request->input('contribution_ids', []);
+        $manualPaymentIds = $request->input('manual_payment_ids', []);
+        $now = now();
         
-        if (empty($contributionIds)) {
+        if (empty($contributionIds) && empty($manualPaymentIds)) {
             return response()->json(['message' => 'No se seleccionaron pagos'], 422);
         }
 
-        Contribution::whereIn('id', $contributionIds)
-            ->where('is_deposited', false)
-            ->where('status', 'completed')
-            ->update([
-                'is_deposited' => true,
-                'deposited_at' => now()
-            ]);
+        if (!empty($contributionIds)) {
+            Contribution::whereIn('id', $contributionIds)
+                ->update([
+                    'is_deposited' => true,
+                    'deposited_at' => $now
+                ]);
+        }
+
+        if (!empty($manualPaymentIds)) {
+            ManualPayment::whereIn('id', $manualPaymentIds)
+                ->update([
+                    'is_deposited' => true,
+                    'deposited_at' => $now
+                ]);
+        }
 
         return response()->json(['message' => 'Depósito marcado como completado']);
     }

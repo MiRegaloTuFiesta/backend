@@ -70,32 +70,86 @@ class ProfileController extends Controller
         return response()->json(['message' => 'Contraseña actualizada con éxito']);
     }
 
-    /**
-     * Get financial summary for the creator
-     */
     public function payoutSummary(Request $request)
     {
         $user = $request->user();
 
         // Pending: completed contributions but NOT deposited
-        $pending = \App\Models\Contribution::where('status', 'completed')
+        $pendingContributions = \App\Models\Contribution::where('status', 'completed')
             ->where('is_deposited', false)
             ->whereHas('wish.event', function($q) use ($user) {
                 $q->where('user_id', $user->id);
             })
             ->sum('net_to_user');
 
-        // Completed: completed and deposited
-        $completed = \App\Models\Contribution::where('status', 'completed')
+        $pendingManual = \App\Models\ManualPayment::where('type', 'event')
+            ->where('is_deposited', false)
+            ->whereHas('event', function($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })
+            ->sum('amount');
+
+        // Completed contributions
+        $completedContributions = \App\Models\Contribution::where('status', 'completed')
             ->where('is_deposited', true)
             ->whereHas('wish.event', function($q) use ($user) {
                 $q->where('user_id', $user->id);
             })
-            ->sum('net_to_user');
+            ->with(['wish.event'])
+            ->get();
+
+        $completedManual = \App\Models\ManualPayment::where('type', 'event')
+            ->where('is_deposited', true)
+            ->whereHas('event', function($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })
+            ->with(['event'])
+            ->get();
+
+        $allCompleted = $completedContributions->concat($completedManual)->sortByDesc('deposited_at');
+
+        $completedBalance = $allCompleted->sum(function($item) {
+            return ($item instanceof \App\Models\Contribution) ? $item->net_to_user : $item->amount;
+        });
+
+        // Group history by deposited_at (day)
+        $history = $allCompleted->groupBy(function($item) {
+            return $item->deposited_at->format('Y-m-d');
+        })->map(function($items, $date) {
+            $first = $items->first();
+            return [
+                'date' => $first->deposited_at->format('d/m/Y'),
+                'amount' => (int)$items->sum(function($item) {
+                    return ($item instanceof \App\Models\Contribution) ? $item->net_to_user : $item->amount;
+                }),
+                'details' => $items->map(function($item) {
+                    if ($item instanceof \App\Models\Contribution) {
+                        return [
+                            'id' => 'c_' . $item->id,
+                            'event_name' => $item->wish?->event?->name,
+                            'wish_name' => $item->wish?->name,
+                            'donor_name' => $item->donor_name,
+                            'amount' => (int)$item->net_to_user,
+                            'created_at' => $item->created_at->format('d/m/Y')
+                        ];
+                    } else {
+                        return [
+                            'id' => 'm_' . $item->id,
+                            'event_name' => $item->event?->name,
+                            'wish_name' => 'Abono Manual',
+                            'donor_name' => $item->description,
+                            'amount' => (int)$item->amount,
+                            'created_at' => $item->created_at->format('d/m/Y')
+                        ];
+                    }
+                })
+            ];
+        })->values();
 
         return response()->json([
-            'pending_balance' => (int)$pending,
-            'completed_balance' => (int)$completed
+            'pending_balance' => (int)($pendingContributions + $pendingManual),
+            'completed_balance' => (int)$completedBalance,
+            'history' => $history
         ]);
     }
 }

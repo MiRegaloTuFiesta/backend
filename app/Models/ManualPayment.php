@@ -14,6 +14,13 @@ class ManualPayment extends Model
         'amount',
         'description',
         'type',
+        'is_deposited',
+        'deposited_at'
+    ];
+
+    protected $casts = [
+        'is_deposited' => 'boolean',
+        'deposited_at' => 'datetime',
     ];
 
     public function event()

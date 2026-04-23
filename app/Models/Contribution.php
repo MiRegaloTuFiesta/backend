@@ -14,6 +14,11 @@ class Contribution extends Model
         'platform_fee', 'gateway_fee', 'net_to_user', 'is_deposited', 'deposited_at'
     ];
 
+    protected $casts = [
+        'is_deposited' => 'boolean',
+        'deposited_at' => 'datetime',
+    ];
+
     public function wish()
     {
         return $this->belongsTo(Wish::class);

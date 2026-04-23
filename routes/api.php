@@ -76,6 +76,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Payouts Admin
     Route::get('/admin/payouts', [AdminController::class, 'payouts']);
+    Route::get('/admin/payouts/history', [AdminController::class, 'payoutHistory']);
     Route::post('/admin/payouts/{userId}/complete', [AdminController::class, 'completePayout']);
 
     // User Profile
