@@ -17,6 +17,8 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\GeographyController;
 use App\Http\Controllers\EventReportController;
 use App\Http\Controllers\WishTemplateController;
+use App\Http\Controllers\BankController;
+use App\Http\Controllers\ProfileController;
 
 // Geography Public Routes
 Route::get('/regions', [GeographyController::class, 'regions']);
@@ -63,7 +65,22 @@ Route::middleware('auth:sanctum')->group(function () {
     // Wish Templates
     Route::apiResource('admin/wish-templates', WishTemplateController::class);
     Route::get('/wish-templates', [WishTemplateController::class, 'publicIndex']);
+
+    // Banks & Account Types Admin
+    Route::get('/admin/banks', [BankController::class, 'index']);
+    Route::post('/admin/banks', [BankController::class, 'store']);
+    Route::put('/admin/banks/{id}', [BankController::class, 'update']);
+    Route::delete('/admin/banks/{id}', [BankController::class, 'destroy']);
+    Route::get('/admin/account-types', [BankController::class, 'accountTypes']);
+    Route::post('/admin/account-types', [BankController::class, 'storeAccountType']);
+
+    // User Profile
+    Route::put('/user/profile', [ProfileController::class, 'update']);
+    Route::put('/user/password', [ProfileController::class, 'updatePassword']);
 });
+
+// Public List for registration/profile
+Route::get('/banks', [BankController::class, 'publicIndex']);
 
 // Categories Public List
 Route::get('/categories', [CategoryController::class, 'index']);

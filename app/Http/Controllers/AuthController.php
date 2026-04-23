@@ -21,7 +21,19 @@ class AuthController extends Controller
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8',
             'phone' => 'nullable|string|max:20',
+            'bank_id' => 'nullable|exists:banks,id',
+            'account_type_id' => 'nullable|exists:account_types,id',
+            'account_number' => 'nullable|string|max:50',
         ]);
+
+        // Conditional validation for bank details
+        if ($request->bank_id || $request->account_type_id || $request->account_number) {
+            $request->validate([
+                'bank_id' => 'required',
+                'account_type_id' => 'required',
+                'account_number' => 'required',
+            ]);
+        }
 
         $user = User::create([
             'name' => $request->name,
@@ -29,6 +41,9 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
             'role' => 'creator',
             'phone' => $request->phone,
+            'bank_id' => $request->bank_id,
+            'account_type_id' => $request->account_type_id,
+            'account_number' => $request->account_number,
         ]);
 
         event(new Registered($user));

@@ -25,7 +25,20 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'role',
         'phone',
+        'bank_id',
+        'account_type_id',
+        'account_number',
     ];
+
+    public function bank()
+    {
+        return $this->belongsTo(Bank::class);
+    }
+
+    public function accountType()
+    {
+        return $this->belongsTo(AccountType::class);
+    }
 
     /**
      * The attributes that should be hidden for serialization.
