@@ -103,6 +103,7 @@ class AdminController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|email|unique:users,email,' . $id,
+            'phone' => 'sometimes|string|max:20|nullable',
             'role' => 'sometimes|in:admin,creator',
         ]);
 
