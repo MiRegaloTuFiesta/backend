@@ -21,6 +21,8 @@ class SettingsSeeder extends Seeder
             'iva_percent' => '19.0',
             'min_contribution_amount' => '1000',
             'payout_days' => '3',
+            'enable_manual_payments' => '1',
+            'enable_internal_service' => '1',
         ];
 
         foreach ($settings as $key => $value) {

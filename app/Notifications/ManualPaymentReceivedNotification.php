@@ -46,7 +46,6 @@ class ManualPaymentReceivedNotification extends Notification
             ->line('Se ha registrado un nuevo abono manual para tu evento: **' . $event->name . '**.')
             ->line('Monto del abono: **' . $amountFormatted . '**')
             ->line('Descripción: ' . ($this->manualPayment->description ?: 'Abono manual registrado por administración.'))
-            ->line('Este abono ha sido descontado automáticamente de la meta total de tu evento.')
             ->action('Ver mi Dashboard', url(config('app.frontend_url') . '/dashboard'))
             ->line('¡Gracias por usar Mi Regalo, Tu Fiesta!');
     }

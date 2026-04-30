@@ -80,7 +80,7 @@ class AdminController extends Controller
     {
         $search = $request->query('search');
         $role = $request->query('role');
-        $query = User::query();
+        $query = User::with(['bank', 'accountType']);
 
         if ($search) {
             $query->where(function($q) use ($search) {
@@ -316,7 +316,7 @@ class AdminController extends Controller
 
     public function getPublicSettings()
     {
-        $keys = ['enable_flow', 'enable_mp', 'enable_transfer', 'transfer_bank_details', 'payout_days'];
+        $keys = ['enable_flow', 'enable_mp', 'enable_transfer', 'transfer_bank_details', 'payout_days', 'enable_manual_payments', 'enable_internal_service'];
         return response()->json(Setting::whereIn('key', $keys)->get()->pluck('value', 'key'));
     }
 
