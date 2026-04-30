@@ -107,7 +107,7 @@ class EventController extends Controller
                 $query->with(['contributions' => function($q) {
                     $q->where('status', 'completed');
                 }]);
-            }, 'city.region'])
+            }, 'city.region', 'user'])
             ->withSum(['manualPayments as manual_payments_sum_amount' => function($q) {
                 $q->where('type', 'event');
             }], 'amount')
