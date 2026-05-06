@@ -116,6 +116,11 @@ class EventController extends Controller
             }], 'amount')
             ->firstOrFail();
         
+        // Hide profile photo if user doesn't want it public
+        if ($event->user && !$event->user->is_profile_photo_public) {
+            $event->user->makeHidden(['profile_photo_path', 'profile_photo_url']);
+        }
+        
         return response()->json($event);
     }
 

@@ -23,7 +23,20 @@ class ProfileController extends Controller
             'account_type_id' => 'nullable|exists:account_types,id',
             'account_number' => 'nullable|string|max:50',
             'bank_rut' => ['nullable', 'string', new \App\Rules\RutValid],
+            'is_profile_photo_public' => 'sometimes|boolean',
+            'profile_photo' => 'nullable|image|max:2048',
         ]);
+
+        // Manejo de la foto de perfil
+        if ($request->hasFile('profile_photo')) {
+            // Eliminar anterior si existe
+            if ($user->profile_photo_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($user->profile_photo_path);
+            }
+            
+            $path = $request->file('profile_photo')->store('profile-photos', 'public');
+            $user->profile_photo_path = $path;
+        }
 
         // Email changed logic
         if (isset($validated['email']) && $validated['email'] !== $user->email) {
@@ -42,7 +55,7 @@ class ProfileController extends Controller
             ]);
         }
 
-        $user->fill($validated);
+        $user->fill(collect($validated)->except('profile_photo')->toArray());
         $user->save();
 
         return response()->json([

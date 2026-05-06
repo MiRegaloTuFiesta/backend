@@ -29,7 +29,12 @@ class User extends Authenticatable implements MustVerifyEmail
         'account_type_id',
         'account_number',
         'bank_rut',
+        'profile_photo_path',
+        'is_profile_photo_public',
     ];
+
+    protected $appends = ['profile_photo_url'];
+
 
     public function bank()
     {
@@ -61,8 +66,17 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_profile_photo_public' => 'boolean',
         ];
     }
+
+    public function getProfilePhotoUrlAttribute()
+    {
+        return $this->profile_photo_path 
+            ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->profile_photo_path) 
+            : null;
+    }
+
 
     public function events()
     {
