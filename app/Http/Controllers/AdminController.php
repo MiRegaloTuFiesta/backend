@@ -431,6 +431,7 @@ class AdminController extends Controller
                 'user_id' => $user->id,
                 'user_name' => $user->name,
                 'user_email' => $user->email,
+                'user_phone' => $user->phone,
                 'bank_details' => $user->bank ? [
                     'bank_name' => $user->bank->name,
                     'account_type' => $user->accountType?->name,
@@ -498,6 +499,7 @@ class AdminController extends Controller
                 'user_id' => $user->id,
                 'user_name' => $user->name,
                 'user_email' => $user->email,
+                'user_phone' => $user->phone,
                 'deposited_at' => $first->deposited_at->format('d/m/Y'),
                 'deposited_at_raw' => $first->deposited_at,
                 'bank_details' => $user->bank ? [
@@ -509,6 +511,11 @@ class AdminController extends Controller
                 'total_deposited' => (int)$items->sum(function($item) {
                     return ($item instanceof Contribution) ? $item->net_to_user : $item->amount;
                 }),
+                'payout_proof_url' => $items->first(fn($i) => !empty($i->payout_proof_path))?->payout_proof_path 
+                    ? \Illuminate\Support\Facades\Storage::disk('public')->url($items->first(fn($i) => !empty($i->payout_proof_path))->payout_proof_path) 
+                    : null,
+                'contribution_ids' => $items->filter(fn($i) => $i instanceof Contribution)->pluck('id')->all(),
+                'manual_payment_ids' => $items->filter(fn($i) => $i instanceof ManualPayment)->pluck('id')->all(),
                 'details' => $items->map(function($item) {
                      if ($item instanceof Contribution) {
                          return [
@@ -540,17 +547,31 @@ class AdminController extends Controller
     {
         $contributionIds = $request->input('contribution_ids', []);
         $manualPaymentIds = $request->input('manual_payment_ids', []);
+
+        // Handle JSON strings if sent via FormData
+        if (is_string($contributionIds)) {
+            $contributionIds = json_decode($contributionIds, true);
+        }
+        if (is_string($manualPaymentIds)) {
+            $manualPaymentIds = json_decode($manualPaymentIds, true);
+        }
         $now = now();
         
         if (empty($contributionIds) && empty($manualPaymentIds)) {
             return response()->json(['message' => 'No se seleccionaron pagos'], 422);
         }
 
+        $proofPath = null;
+        if ($request->hasFile('payout_proof')) {
+            $proofPath = $request->file('payout_proof')->store('payout-proofs', 'public');
+        }
+
         if (!empty($contributionIds)) {
             Contribution::whereIn('id', $contributionIds)
                 ->update([
                     'is_deposited' => true,
-                    'deposited_at' => $now
+                    'deposited_at' => $now,
+                    'payout_proof_path' => $proofPath
                 ]);
         }
 
@@ -558,10 +579,53 @@ class AdminController extends Controller
             ManualPayment::whereIn('id', $manualPaymentIds)
                 ->update([
                     'is_deposited' => true,
-                    'deposited_at' => $now
+                    'deposited_at' => $now,
+                    'payout_proof_path' => $proofPath
                 ]);
         }
 
         return response()->json(['message' => 'Depósito marcado como completado']);
+    }
+
+    public function updatePayoutProof(Request $request)
+    {
+        $contributionIds = $request->input('contribution_ids', []);
+        $manualPaymentIds = $request->input('manual_payment_ids', []);
+        $deleteProof = $request->boolean('delete_proof', false);
+
+        if (is_string($contributionIds)) $contributionIds = json_decode($contributionIds, true);
+        if (is_string($manualPaymentIds)) $manualPaymentIds = json_decode($manualPaymentIds, true);
+
+        // Find existing proof path to delete from disk
+        $existingPath = null;
+        if (!empty($contributionIds)) {
+            $existing = Contribution::whereIn('id', $contributionIds)->whereNotNull('payout_proof_path')->first();
+            $existingPath = $existing?->payout_proof_path;
+        } elseif (!empty($manualPaymentIds)) {
+            $existing = ManualPayment::whereIn('id', $manualPaymentIds)->whereNotNull('payout_proof_path')->first();
+            $existingPath = $existing?->payout_proof_path;
+        }
+
+        // Delete old file from disk if exists
+        if ($existingPath) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($existingPath);
+        }
+
+        $newPath = null;
+        if (!$deleteProof && $request->hasFile('payout_proof')) {
+            $newPath = $request->file('payout_proof')->store('payout-proofs', 'public');
+        }
+
+        if (!empty($contributionIds)) {
+            Contribution::whereIn('id', $contributionIds)->update(['payout_proof_path' => $newPath]);
+        }
+        if (!empty($manualPaymentIds)) {
+            ManualPayment::whereIn('id', $manualPaymentIds)->update(['payout_proof_path' => $newPath]);
+        }
+
+        return response()->json([
+            'message' => $deleteProof ? 'Comprobante eliminado' : 'Comprobante actualizado',
+            'payout_proof_url' => $newPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($newPath) : null,
+        ]);
     }
 }

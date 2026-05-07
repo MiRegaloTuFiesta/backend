@@ -78,6 +78,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/payouts', [AdminController::class, 'payouts']);
     Route::get('/admin/payouts/history', [AdminController::class, 'payoutHistory']);
     Route::post('/admin/payouts/{userId}/complete', [AdminController::class, 'completePayout']);
+    Route::post('/admin/payouts/update-proof', [AdminController::class, 'updatePayoutProof']);
 
     // User Profile
     Route::put('/user/profile', [ProfileController::class, 'update']);
