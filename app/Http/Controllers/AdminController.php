@@ -105,9 +105,23 @@ class AdminController extends Controller
             'email' => 'sometimes|email|unique:users,email,' . $id,
             'phone' => 'sometimes|string|max:20|nullable',
             'role' => 'sometimes|in:admin,creator',
+            'is_profile_photo_public' => 'sometimes|boolean',
+            'profile_photo' => 'nullable|image|max:2048',
         ]);
 
-        $user->update($validated);
+        // Profile Photo Handling
+        if ($request->hasFile('profile_photo')) {
+            if ($user->profile_photo_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($user->profile_photo_path);
+            }
+            
+            $path = $request->file('profile_photo')->store('profile-photos', 'public');
+            $user->profile_photo_path = $path;
+        }
+
+        $user->fill(collect($validated)->except('profile_photo')->toArray());
+        $user->save();
+
         return response()->json($user);
     }
 
