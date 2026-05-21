@@ -98,6 +98,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Event::class);
     }
 
+    public function supportMessages()
+    {
+        return $this->hasMany(SupportMessage::class, 'user_id');
+    }
+
     /**
      * Send the password reset notification.
      *

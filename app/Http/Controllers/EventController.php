@@ -140,8 +140,21 @@ class EventController extends Controller
             : $user->events()->findOrFail($id);
 
         if ($user->role === 'admin') {
-            // Admins can update any field
-            $event->update($request->all());
+            // If admin_notes was sent and is not empty, save it as a support chat message automatically!
+            if ($request->has('admin_notes') && !empty($request->input('admin_notes'))) {
+                \App\Models\SupportMessage::create([
+                    'user_id' => $event->user_id,
+                    'sender_id' => $user->id,
+                    'event_id' => $event->id,
+                    'message' => $request->input('admin_notes'),
+                    'is_read' => false,
+                ]);
+            }
+
+            // Clear legacy notes column and update any other fields
+            $data = $request->all();
+            $data['admin_notes'] = null;
+            $event->update($data);
         } else {
             // Creators can only update their own safe metadata fields
             $validated = $request->validate([

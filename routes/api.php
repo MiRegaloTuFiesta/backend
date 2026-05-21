@@ -19,6 +19,8 @@ use App\Http\Controllers\EventReportController;
 use App\Http\Controllers\WishTemplateController;
 use App\Http\Controllers\BankController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SupportChatController;
+
 
 // Geography Public Routes
 Route::get('/regions', [GeographyController::class, 'regions']);
@@ -44,7 +46,14 @@ Route::middleware(['auth:sanctum', 'blocked'])->group(function () {
     Route::put('/events/{event}', [EventController::class, 'update']);
     Route::delete('/events/{event}', [EventController::class, 'destroy']);
     
+    // Support Chat routes
+    Route::get('/support-chat/{userId?}', [SupportChatController::class, 'index']);
+    Route::post('/support-chat/{userId?}', [SupportChatController::class, 'store']);
+    Route::put('/support-chat/read', [SupportChatController::class, 'markAsRead']);
+    Route::put('/support-chat/{userId}/read', [SupportChatController::class, 'markAsRead']);
+    
     Route::apiResource('wishes', WishController::class);
+
 
     // Admin Specific
     Route::get('/admin/stats', [AdminController::class, 'stats']);

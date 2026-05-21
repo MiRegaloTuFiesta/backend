@@ -60,4 +60,10 @@ class Event extends Model
     {
         return $this->hasMany(ManualPayment::class);
     }
+
+    public function supportMessages()
+    {
+        return $this->hasMany(SupportMessage::class);
+    }
 }
+
