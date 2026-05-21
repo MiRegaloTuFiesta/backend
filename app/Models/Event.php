@@ -12,12 +12,13 @@ class Event extends Model
 
     protected $fillable = [
         'uuid', 'user_id', 'name', 'date', 'total_price', 'collected_amount', 'overflow_balance', 'status', 'admin_notes', 'assigned_admin_id', 'category_id', 'city_id', 'address', 'is_location_public',
-        'creator_budget', 'requests_internal_service', 'service_cost', 'service_adds_to_total'
+        'creator_budget', 'requests_internal_service', 'service_cost', 'service_adds_to_total', 'is_blocked'
     ];
 
     protected $casts = [
         'requests_internal_service' => 'boolean',
         'service_adds_to_total' => 'boolean',
+        'is_blocked' => 'boolean',
     ];
 
     public function city()

@@ -36,7 +36,7 @@ Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
     ->name('verification.verify');
 
 // Protected Routes (Creator Dashboard)
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'blocked'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/email/resend', [AuthController::class, 'resendVerification']);
     Route::get('/events', [EventController::class, 'index']);
@@ -51,6 +51,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/users', [AdminController::class, 'users']);
     Route::put('/admin/users/{id}', [AdminController::class, 'updateUser']);
     Route::delete('/admin/users/{id}', [AdminController::class, 'destroyUser']);
+    Route::post('/admin/users/{id}/block', [AdminController::class, 'blockUser']);
+    Route::post('/admin/users/{id}/unblock', [AdminController::class, 'unblockUser']);
+    Route::post('/admin/events/{id}/block', [AdminController::class, 'blockEvent']);
+    Route::post('/admin/events/{id}/unblock', [AdminController::class, 'unblockEvent']);
     Route::get('/admin/payments', [AdminController::class, 'payments']);
     Route::get('/admin/settings', [AdminController::class, 'getSettings']);
     Route::post('/admin/settings', [AdminController::class, 'updateSettings']);

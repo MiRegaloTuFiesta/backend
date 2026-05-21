@@ -115,6 +115,14 @@ class EventController extends Controller
                 $q->where('type', 'service');
             }], 'amount')
             ->firstOrFail();
+
+        if ($event->is_blocked) {
+            return response()->json(['message' => 'Este evento ha sido bloqueado por el administrador.'], 403);
+        }
+
+        if ($event->user && $event->user->is_currently_blocked) {
+            return response()->json(['message' => 'El creador de este evento ha sido bloqueado.'], 403);
+        }
         
         // Hide profile photo if user doesn't want it public
         if ($event->user && !$event->user->is_profile_photo_public) {

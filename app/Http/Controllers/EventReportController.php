@@ -48,7 +48,10 @@ class EventReportController extends Controller
             return response()->json(['message' => 'No autorizado'], 403);
         }
 
-        $reports = EventReport::with('event:id,uuid,name')
+        $reports = EventReport::with([
+            'event:id,uuid,name,user_id,is_blocked',
+            'event.user:id,name,email,phone,is_blocked,blocked_until'
+        ])
             ->latest()
             ->get();
 

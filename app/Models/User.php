@@ -31,9 +31,11 @@ class User extends Authenticatable implements MustVerifyEmail
         'bank_rut',
         'profile_photo_path',
         'is_profile_photo_public',
+        'is_blocked',
+        'blocked_until',
     ];
 
-    protected $appends = ['profile_photo_url'];
+    protected $appends = ['profile_photo_url', 'is_currently_blocked'];
 
 
     public function bank()
@@ -67,7 +69,20 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_profile_photo_public' => 'boolean',
+            'is_blocked' => 'boolean',
+            'blocked_until' => 'datetime',
         ];
+    }
+
+    public function getIsCurrentlyBlockedAttribute()
+    {
+        if ($this->is_blocked) {
+            return true;
+        }
+        if ($this->blocked_until && $this->blocked_until->isFuture()) {
+            return true;
+        }
+        return false;
     }
 
     public function getProfilePhotoUrlAttribute()

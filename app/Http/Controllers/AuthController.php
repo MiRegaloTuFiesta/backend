@@ -78,6 +78,12 @@ class AuthController extends Controller
             ]);
         }
 
+        if ($user->is_currently_blocked) {
+            throw ValidationException::withMessages([
+                'email' => ['Tu cuenta ha sido bloqueada temporal o permanentemente por el administrador.'],
+            ]);
+        }
+
         return response()->json([
             'user' => [
                 'id' => $user->id,

@@ -432,6 +432,7 @@ class AdminController extends Controller
                 'user_name' => $user->name,
                 'user_email' => $user->email,
                 'user_phone' => $user->phone,
+                'is_currently_blocked' => $user->is_currently_blocked,
                 'bank_details' => $user->bank ? [
                     'bank_name' => $user->bank->name,
                     'account_type' => $user->accountType?->name,
@@ -626,6 +627,76 @@ class AdminController extends Controller
         return response()->json([
             'message' => $deleteProof ? 'Comprobante eliminado' : 'Comprobante actualizado',
             'payout_proof_url' => $newPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($newPath) : null,
+        ]);
+    }
+
+    public function blockUser(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+        
+        // Prevent self-blocking
+        if ($user->id === (int) $request->user()?->id) {
+            return response()->json(['message' => 'No puedes bloquearte a ti mismo.'], 422);
+        }
+
+        $validated = $request->validate([
+            'type' => 'required|in:forever,temporary',
+            'blocked_until' => 'required_if:type,temporary|date|nullable',
+        ]);
+
+        if ($validated['type'] === 'forever') {
+            $user->is_blocked = true;
+            $user->blocked_until = null;
+        } else {
+            $user->is_blocked = false;
+            $user->blocked_until = Carbon::parse($validated['blocked_until'])->endOfDay();
+        }
+
+        $user->save();
+
+        // Revoke user's personal access tokens to force logout
+        $user->tokens()->delete();
+
+        return response()->json([
+            'message' => 'Perfil del usuario bloqueado con éxito.',
+            'user' => $user
+        ]);
+    }
+
+    public function unblockUser(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+        $user->is_blocked = false;
+        $user->blocked_until = null;
+        $user->save();
+
+        return response()->json([
+            'message' => 'Perfil del usuario desbloqueado con éxito.',
+            'user' => $user
+        ]);
+    }
+
+    public function blockEvent(Request $request, $id)
+    {
+        $event = Event::findOrFail($id);
+        $event->is_blocked = true;
+        $event->save();
+
+        return response()->json([
+            'message' => 'El acceso al evento ha sido bloqueado con éxito.',
+            'event' => $event
+        ]);
+    }
+
+    public function unblockEvent(Request $request, $id)
+    {
+        $event = Event::findOrFail($id);
+        $event->is_blocked = false;
+        $event->save();
+
+        return response()->json([
+            'message' => 'El acceso al evento ha sido desbloqueado con éxito.',
+            'event' => $event
         ]);
     }
 }
